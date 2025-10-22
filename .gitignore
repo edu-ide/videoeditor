@@ -3,3 +3,21 @@
 .pnp.loader.mjs
 .yarn/
 yarn.lock
+
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Build outputs
+.react-router/
+build/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
