@@ -1,5 +1,5 @@
 export const getApiBaseUrl = (fastapi: boolean = false, betterauth: boolean = false): string => {
-  const isProduction = process.env.NODE_ENV === "production";
+  const isProduction = false;
 
   if (betterauth) {
     return isProduction ? "https://trykimu.com" : "http://localhost:5173";  // frontend  NOTE: this will be deleted, it is repeating logic. It'll be the default.

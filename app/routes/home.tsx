@@ -1047,7 +1047,7 @@ export default function TimelineEditor() {
       )}
 
       {/* Blocker overlay for unauthenticated users */}
-      {!isAuthLoading && !user && (
+      {!isAuthLoading && !user && !import.meta.env.VITE_DEMO_MODE && (
         <AuthOverlay isLoading={isAuthLoading} isSigningIn={isSigningIn} onSignIn={signInWithGoogle} />
       )}
     </div>

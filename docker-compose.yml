@@ -3,11 +3,11 @@ services:
     image: nginx:alpine
     container_name: videoeditor-nginx
     ports:
-      - "80:80"
-      - "443:443"
+      - "8090:80"
+      - "8443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
-      - /etc/letsencrypt:/etc/letsencrypt:ro  # Mount certs read-only
+      # - /etc/letsencrypt:/etc/letsencrypt:ro  # Mount certs read-only (disabled for local dev)
     depends_on:
       - frontend
       - backend
@@ -19,6 +19,7 @@ services:
       args:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_DEMO_MODE: ${VITE_DEMO_MODE}
     container_name: videoeditor-frontend
     env_file:
       - .env
