@@ -271,7 +271,7 @@ export const useMediaBin = (handleDeleteScrubbersByMediaBinId: (mediaBinId: stri
           "X-Media-Width": metadata.width.toString(),
           "X-Media-Height": metadata.height.toString(),
           "X-Media-Duration": (metadata.durationInSeconds || 0).toString(),
-          "X-Original-Name": file.name,
+          "X-Original-Name": encodeURIComponent(file.name),
           "X-Project-Id": projectId || "",
         },
         withCredentials: true, // Include authentication cookies
@@ -296,12 +296,12 @@ export const useMediaBin = (handleDeleteScrubbersByMediaBinId: (mediaBinId: stri
         prev.map((item) =>
           item.id === id
             ? {
-                ...item,
-                id: uploadResult.asset.id, // Use the database-generated asset ID
-                mediaUrlRemote: uploadResult.asset.mediaUrlRemote,
-                isUploading: false,
-                uploadProgress: null,
-              }
+              ...item,
+              id: uploadResult.asset.id, // Use the database-generated asset ID
+              mediaUrlRemote: uploadResult.asset.mediaUrlRemote,
+              isUploading: false,
+              uploadProgress: null,
+            }
             : item,
         ),
       );

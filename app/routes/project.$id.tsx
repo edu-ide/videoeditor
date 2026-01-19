@@ -1,36 +1,14 @@
-import { useParams, useNavigate, useLoaderData, type LoaderFunctionArgs } from "react-router";
+import { useParams, useNavigate } from "react-router";
 import React, { useEffect } from "react";
 import TimelineEditor from "./home";
-import { auth } from "~/lib/auth.server";
-import { loadTimeline } from "~/lib/timeline.store";
-import type { TimelineState } from "~/components/timeline/types";
-import { IdParamSchema } from "~/schemas";
 
-export async function loader({ request, params }: LoaderFunctionArgs) {
-  // SSR gate: verify auth
-  try {
-    const session = await auth.api?.getSession?.({ headers: request.headers });
-    const uid: string | undefined = session?.user?.id || session?.session?.userId;
-    if (!uid)
-      return new Response(null, {
-        status: 302,
-        headers: { Location: "/login" },
-      });
-  } catch {
-    return new Response(null, { status: 302, headers: { Location: "/login" } });
-  }
-  // Validate route param
-  const id = IdParamSchema.parse(params.id);
-  // Optionally prefetch timeline to hydrate client faster
-  const timeline = await loadTimeline(id);
-  return { timeline };
-}
+// Loader removed for SPA mode compatibility
+// Authentication and timeline loading is handled client-side
 
 export default function ProjectEditorRoute() {
   const params = useParams();
   const navigate = useNavigate();
   const id = params.id as string;
-  const data = useLoaderData() as { timeline?: TimelineState };
 
   useEffect(() => {
     // Lightweight guard: verify project ownership before showing editor
@@ -42,6 +20,7 @@ export default function ProjectEditorRoute() {
     })();
   }, [id, navigate]);
 
-  // Pass through existing editor; it manages state internally. We injected loader for prefetch.
+  // Pass through existing editor; it manages state internally.
   return <TimelineEditor />;
 }
+

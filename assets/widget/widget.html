@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="openai:widget-domain" content="videoeditor.kimu.studio">
+    <meta name="openai:widget-csp" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' *;">
+    <title>Kimu Video Editor Widget</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: transparent;
+            color: #ffffff;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+        }
+
+        .timeline-container {
+            background: rgba(23, 23, 23, 0.9);
+            border: 1px solid rgba(63, 63, 70, 0.5);
+            border-radius: 12px;
+            backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+
+<body class="p-4">
+    <div class="timeline-container p-6 shadow-2xl">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                </div>
+                <h1 class="text-lg font-bold tracking-tight">Kimu Timeline</h1>
+            </div>
+            <div id="status"
+                class="text-xs font-medium text-green-400 bg-green-400/10 px-2 py-1 rounded-full border border-green-400/20">
+                Connected
+            </div>
+        </div>
+
+        <div id="timeline-display" class="space-y-4">
+            <!-- Timeline tracks will be rendered here -->
+            <div
+                class="flex items-center justify-center h-32 border-2 border-dashed border-zinc-700/50 rounded-lg bg-zinc-800/20">
+                <p class="text-sm text-zinc-500">Initializing timeline view...</p>
+            </div>
+        </div>
+
+        <div class="mt-8 grid grid-cols-2 gap-4">
+            <button id="refresh-btn"
+                class="flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm font-medium py-2 px-4 rounded-lg transition-all border border-zinc-700/50">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                    </path>
+                </svg>
+                Sync Data
+            </button>
+            <button id="render-btn"
+                class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium py-2 px-4 rounded-lg transition-all shadow-lg shadow-blue-500/20">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Export Video
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // MCP Widget Communication logic
+        const timelineDisplay = document.getElementById('timeline-display');
+        const statusEl = document.getElementById('status');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const renderBtn = document.getElementById('render-btn');
+
+        let projectId = null;
+
+        // Listen for messages from the LLM client or MCP server
+        window.addEventListener('message', (event) => {
+            const { type, data } = event.data;
+
+            if (type === 'openai:init') {
+                projectId = data.projectId;
+                fetchTimeline();
+            } else if (type === 'openai:update') {
+                renderTimeline(data.timeline);
+            }
+        });
+
+        async function fetchTimeline() {
+            if (!projectId) return;
+
+            statusEl.textContent = 'Syncing...';
+            statusEl.className = 'text-xs font-medium text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded-full border border-yellow-400/20';
+
+            try {
+                // In a real skybridge widget, this might call back to the tool
+                // or use a direct MCP resource URL. For now, we simulate.
+                window.parent.postMessage({
+                    type: 'openai:call-tool',
+                    tool: 'get_project_timeline',
+                    arguments: { projectId }
+                }, '*');
+            } catch (err) {
+                console.error('Fetch failed', err);
+            }
+        }
+
+        function renderTimeline(timeline) {
+            statusEl.textContent = 'Synced';
+            statusEl.className = 'text-xs font-medium text-green-400 bg-green-400/10 px-2 py-1 rounded-full border border-green-400/20';
+
+            if (!timeline || !timeline.tracks || timeline.tracks.length === 0) {
+                timelineDisplay.innerHTML = `
+                    <div class="flex items-center justify-center h-32 border-2 border-dashed border-zinc-700/50 rounded-lg bg-zinc-800/20">
+                        <p class="text-sm text-zinc-500">Timeline is empty</p>
+                    </div>
+                `;
+                return;
+            }
+
+            timelineDisplay.innerHTML = timeline.tracks.map((track, idx) => `
+                <div class="space-y-1">
+                    <div class="flex justify-between text-[10px] text-zinc-500 font-mono">
+                        <span>TRACK ${idx + 1}</span>
+                        <span>${track.scrubbers.length} items</span>
+                    </div>
+                    <div class="h-8 bg-zinc-900 rounded border border-zinc-800 relative overflow-hidden flex items-center px-1 gap-1">
+                        ${track.scrubbers.map(s => `
+                            <div class="h-6 bg-blue-500/20 border border-blue-500/40 rounded px-2 flex items-center min-w-[40px] max-w-full">
+                                <span class="text-[9px] truncate text-blue-300 font-medium">${s.name}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        refreshBtn.onclick = fetchTimeline;
+
+        renderBtn.onclick = () => {
+            if (!projectId) return;
+            window.parent.postMessage({
+                type: 'openai:call-tool',
+                tool: 'render_video',
+                arguments: { projectId }
+            }, '*');
+        };
+    </script>
+</body>
+
+</html>

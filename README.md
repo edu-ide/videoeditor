@@ -86,7 +86,7 @@ docker compose -f docker-compose.yml \
 pnpm install
 
 # Start services
-pnpm run dev                                    # Frontend (port 5173)
+pnpm run dev                                    # App Server (port 3000)
 pnpm dlx tsx app/videorender/videorender.ts     # Backend (port 8000)
 uv run backend/main.py                          # FastAPI (port 3000)
 

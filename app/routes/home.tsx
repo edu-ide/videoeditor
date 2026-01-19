@@ -42,6 +42,8 @@ import { Input } from "~/components/ui/input";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "~/components/ui/resizable";
 import { toast } from "sonner";
 
+import { useYjsSync } from "~/hooks/useYjsSync";
+
 // Hooks
 import { useTimeline } from "~/hooks/useTimeline";
 import { useMediaBin } from "~/hooks/useMediaBin";
@@ -58,17 +60,10 @@ import {
   type ScrubberState,
 } from "~/components/timeline/types";
 import { useNavigate, useParams, useLocation } from "react-router";
-import { ChatBox } from "~/components/chat/ChatBox";
 import { KimuLogo } from "~/components/ui/KimuLogo";
 import { useAuth } from "~/hooks/useAuth";
-import { AuthOverlay } from "~/components/ui/AuthOverlay";
 
-interface Message {
-  id: string;
-  content: string;
-  isUser: boolean;
-  timestamp: Date;
-}
+
 
 export default function TimelineEditor() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -101,9 +96,6 @@ export default function TimelineEditor() {
     setHeightInput(String(height));
   }, [height]);
 
-  const [isChatMinimized, setIsChatMinimized] = useState<boolean>(false);
-
-  const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [starCount, setStarCount] = useState<number | null>(null);
   // Avoid initial blank render; don't delay render on a 'mounted' gate
 
@@ -147,6 +139,9 @@ export default function TimelineEditor() {
     canRedo,
     snapshotTimeline,
   } = useTimeline();
+
+  // Integration with Yjs for real-time sync
+  useYjsSync(projectId, timeline, setTimelineFromServer);
 
   const {
     mediaBinItems,
@@ -193,8 +188,8 @@ export default function TimelineEditor() {
     // Calculate the maximum end time from all scrubbers
     // Since overlapping scrubbers are already positioned correctly,
     // we just need the maximum end time
-    timelineData.forEach((timelineItem) => {
-      timelineItem.scrubbers.forEach((scrubber) => {
+    timelineData.forEach((timelineItem: any) => {
+      timelineItem.scrubbers.forEach((scrubber: any) => {
         if (scrubber.endTime > maxEndTime) maxEndTime = scrubber.endTime;
       });
     });
@@ -326,12 +321,12 @@ export default function TimelineEditor() {
     let changed = false;
 
     const assetsByName = new Map(
-      mediaBinItems.filter((i) => i.mediaType !== "text" && i.mediaUrlRemote).map((i) => [i.name, i]),
+      mediaBinItems.filter((i: any) => i.mediaType !== "text" && i.mediaUrlRemote).map((i: any) => [i.name, i]),
     );
 
-    const newTracks = current.tracks.map((track) => ({
+    const newTracks = current.tracks.map((track: any) => ({
       ...track,
-      scrubbers: track.scrubbers.map((s) => {
+      scrubbers: track.scrubbers.map((s: any) => {
         if (s.mediaType === "text") return s;
         if (!s.mediaUrlRemote) {
           const match = assetsByName.get(s.name);
@@ -742,17 +737,18 @@ export default function TimelineEditor() {
     };
   }, [handleZoomIn, handleZoomOut]);
 
-  const { user, isLoading: isAuthLoading, isSigningIn, signInWithGoogle, signOut } = useAuth();
+  const { user, isLoading, isSigningIn, onSignIn, onSignOut } = useAuth();
 
   return (
-    <div
-      className="h-screen flex flex-col bg-background text-foreground"
+    <div className="flex flex-col h-screen overflow-hidden bg-background text-foreground font-sans selection:bg-primary/20"
       onPointerDown={(e: React.PointerEvent) => {
         if (e.button !== 0) {
           return;
         }
         setSelectedItem(null);
       }}>
+      {/* Auth removed as per user request */}
+
       {/* Ultra-minimal Top Bar */}
       <header className="h-9 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center justify-between px-3 shrink-0">
         <div className="flex items-center gap-3">
@@ -794,12 +790,12 @@ export default function TimelineEditor() {
 
           {/* Auth status — keep avatar as the last item (right corner) */}
           {user ? (
-            <ProfileMenu user={user} starCount={starCount} onSignOut={signOut} />
+            <ProfileMenu user={user} starCount={starCount} onSignOut={onSignOut} />
           ) : (
             <Button
               variant="ghost"
               size="sm"
-              onClick={signInWithGoogle}
+              onClick={onSignIn}
               className="h-7 px-2 text-xs ml-1"
               title="Sign in with Google">
               Sign in
@@ -816,11 +812,10 @@ export default function TimelineEditor() {
             <Button
               variant="ghost"
               size="sm"
-              className={`h-9 w-9 p-0 ${
-                location.pathname.includes("/media-bin") || /^\/project\/[^/]+\/?$/.test(location.pathname)
-                  ? "bg-background text-primary"
-                  : "text-muted-foreground"
-              }`}
+              className={`h-9 w-9 p-0 ${location.pathname.includes("/media-bin") || /^\/project\/[^/]+\/?$/.test(location.pathname)
+                ? "bg-background text-primary"
+                : "text-muted-foreground"
+                }`}
               onClick={() => openSection("media-bin")}
               title="Media Bin">
               <File className="h-5 w-5" />
@@ -828,9 +823,8 @@ export default function TimelineEditor() {
             <Button
               variant="ghost"
               size="sm"
-              className={`h-9 w-9 p-0 ${
-                location.pathname.includes("/text-editor") ? "bg-background text-primary" : "text-muted-foreground"
-              }`}
+              className={`h-9 w-9 p-0 ${location.pathname.includes("/text-editor") ? "bg-background text-primary" : "text-muted-foreground"
+                }`}
               onClick={() => openSection("text-editor")}
               title="Text Editor">
               <Type className="h-5 w-5" />
@@ -838,9 +832,8 @@ export default function TimelineEditor() {
             <Button
               variant="ghost"
               size="sm"
-              className={`h-9 w-9 p-0 ${
-                location.pathname.includes("/transitions") ? "bg-background text-primary" : "text-muted-foreground"
-              }`}
+              className={`h-9 w-9 p-0 ${location.pathname.includes("/transitions") ? "bg-background text-primary" : "text-muted-foreground"
+                }`}
               onClick={() => openSection("transitions")}
               title="Transitions">
               <BetweenVerticalEnd className="h-5 w-5" />
@@ -899,7 +892,7 @@ export default function TimelineEditor() {
           <ResizableHandle withHandle className={isSidebarCollapsed ? "opacity-0 pointer-events-none" : undefined} />
 
           {/* Center Area: Preview and Timeline */}
-          <ResizablePanel defaultSize={isChatMinimized ? 80 : 55}>
+          <ResizablePanel defaultSize={80}>
             <ResizablePanelGroup direction="vertical">
               {/* Preview Area */}
               <ResizablePanel defaultSize={65} minSize={40}>
@@ -964,20 +957,7 @@ export default function TimelineEditor() {
                         </Label>
                       </div>
 
-                      {!isChatMinimized && null}
-                      {isChatMinimized && (
-                        <>
-                          <Separator orientation="vertical" className="h-4 mx-1" />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setIsChatMinimized(false)}
-                            className="h-6 w-6 p-0 text-primary"
-                            title="Open Chat">
-                            <Bot className="h-3 w-3" />
-                          </Button>
-                        </>
-                      )}
+
                     </div>
                   </div>
 
@@ -1142,28 +1122,7 @@ export default function TimelineEditor() {
             </ResizablePanelGroup>
           </ResizablePanel>
 
-          {!isChatMinimized && (
-            <>
-              <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={20} minSize={15} maxSize={35}>
-                <div className="h-full border-l border-border">
-                  <ChatBox
-                    mediaBinItems={mediaBinItems}
-                    handleDropOnTrack={handleDropOnTrack}
-                    isMinimized={false}
-                    onToggleMinimize={() => setIsChatMinimized(true)}
-                    messages={chatMessages}
-                    onMessagesChange={setChatMessages}
-                    timelineState={timeline}
-                    handleUpdateScrubber={handleUpdateScrubberWithLocking}
-                    handleDeleteScrubber={handleDeleteScrubber}
-                    pixelsPerSecond={getPixelsPerSecond()}
-                    restoreTimeline={setTimelineFromServer}
-                  />
-                </div>
-              </ResizablePanel>
-            </>
-          )}
+
         </ResizablePanelGroup>
       </div>
 
@@ -1184,10 +1143,7 @@ export default function TimelineEditor() {
         </div>
       )}
 
-      {/* Blocker overlay for unauthenticated users */}
-      {!isAuthLoading && !user && (
-        <AuthOverlay isLoading={isAuthLoading} isSigningIn={isSigningIn} onSignIn={signInWithGoogle} />
-      )}
+      {/* Auth removed as per user request */}
     </div>
   );
 }

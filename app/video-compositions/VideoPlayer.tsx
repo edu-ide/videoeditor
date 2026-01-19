@@ -36,7 +36,6 @@ type TimelineCompositionProps = {
 export type VideoPlayerProps = {
   timelineData: TimelineDataItem[];
   durationInFrames: number; // this is for the player to know how long to render (used in preview mode)
-  ref: React.Ref<PlayerRef>;
   compositionWidth: number | null; // if null, the player width = max(width)
   compositionHeight: number | null; // if null, the player height = max(height)
   timeline: TimelineState;
@@ -279,7 +278,7 @@ export function TimelineComposition({
 
         for (let j = 0; j < groupedScrubbers.length; j++) {
           const grouppedScrubber = groupedScrubbers[j];
-          
+
           // Add left transition for the first grouped scrubber
           if (j === 0 && grouppedScrubber.left_transition_id && allTransitions[grouppedScrubber.left_transition_id]) {
             const transition = allTransitions[grouppedScrubber.left_transition_id];
@@ -466,79 +465,85 @@ export function TimelineComposition({
   }
 }
 
-export function VideoPlayer({
-  timelineData,
-  durationInFrames,
-  ref,
-  compositionWidth,
-  compositionHeight,
-  timeline,
-  handleUpdateScrubber,
-  selectedItem,
-  setSelectedItem,
-  getPixelsPerSecond,
-}: VideoPlayerProps) {
-  // Calculate composition width if not provided
-  if (compositionWidth === null) {
-    let maxWidth = 0;
-    for (const item of timelineData) {
-      for (const scrubber of item.scrubbers) {
-        if (scrubber.media_width !== null && scrubber.media_width > maxWidth) {
-          maxWidth = scrubber.media_width;
+export const VideoPlayer = React.forwardRef<PlayerRef, VideoPlayerProps>(
+  (
+    {
+      timelineData,
+      durationInFrames,
+      compositionWidth,
+      compositionHeight,
+      timeline,
+      handleUpdateScrubber,
+      selectedItem,
+      setSelectedItem,
+      getPixelsPerSecond,
+    },
+    ref
+  ) => {
+    // Calculate composition width if not provided
+    if (compositionWidth === null) {
+      let maxWidth = 0;
+      for (const item of timelineData) {
+        for (const scrubber of item.scrubbers) {
+          if (scrubber.media_width !== null && scrubber.media_width > maxWidth) {
+            maxWidth = scrubber.media_width;
+          }
         }
       }
+      compositionWidth = maxWidth || 1920; // Default to 1920 if no media found
     }
-    compositionWidth = maxWidth || 1920; // Default to 1920 if no media found
-  }
 
-  // Calculate composition height if not provided
-  if (compositionHeight === null) {
-    let maxHeight = 0;
-    for (const item of timelineData) {
-      for (const scrubber of item.scrubbers) {
-        if (
-          scrubber.media_height !== null &&
-          scrubber.media_height > maxHeight
-        ) {
-          maxHeight = scrubber.media_height;
+    // Calculate composition height if not provided
+    if (compositionHeight === null) {
+      let maxHeight = 0;
+      for (const item of timelineData) {
+        for (const scrubber of item.scrubbers) {
+          if (
+            scrubber.media_height !== null &&
+            scrubber.media_height > maxHeight
+          ) {
+            maxHeight = scrubber.media_height;
+          }
         }
       }
+      compositionHeight = maxHeight || 1080; // Default to 1080 if no media found
     }
-    compositionHeight = maxHeight || 1080; // Default to 1080 if no media found
+
+    // Guard against invalid dimensions (e.g., user typed 0, only-audio timelines)
+    const safeWidth =
+      !compositionWidth || compositionWidth <= 0 ? 1920 : compositionWidth;
+    const safeHeight =
+      !compositionHeight || compositionHeight <= 0 ? 1080 : compositionHeight;
+    const safeDuration = Math.max(1, durationInFrames || 1);
+
+    return (
+      <Player
+        ref={ref}
+        component={TimelineComposition}
+        inputProps={{
+          timelineData,
+          durationInFrames,
+          isRendering: false,
+          selectedItem,
+          setSelectedItem,
+          timeline,
+          handleUpdateScrubber,
+          getPixelsPerSecond,
+        }}
+        durationInFrames={safeDuration}
+        compositionWidth={safeWidth}
+        compositionHeight={safeHeight}
+        fps={30}
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "relative",
+          zIndex: 1,
+        }}
+        acknowledgeRemotionLicense
+      />
+    );
   }
+);
 
-  // Guard against invalid dimensions (e.g., user typed 0, only-audio timelines)
-  const safeWidth =
-    !compositionWidth || compositionWidth <= 0 ? 1920 : compositionWidth;
-  const safeHeight =
-    !compositionHeight || compositionHeight <= 0 ? 1080 : compositionHeight;
-  const safeDuration = Math.max(1, durationInFrames || 1);
-
-  return (
-    <Player
-      ref={ref}
-      component={TimelineComposition}
-      inputProps={{
-        timelineData,
-        durationInFrames,
-        isRendering: false,
-        selectedItem,
-        setSelectedItem,
-        timeline,
-        handleUpdateScrubber,
-        getPixelsPerSecond,
-      }}
-      durationInFrames={safeDuration}
-      compositionWidth={safeWidth}
-      compositionHeight={safeHeight}
-      fps={30}
-      style={{
-        width: "100%",
-        height: "100%",
-        position: "relative",
-        zIndex: 1,
-      }}
-      acknowledgeRemotionLicense
-    />
-  );
-}
+VideoPlayer.displayName = "VideoPlayer";

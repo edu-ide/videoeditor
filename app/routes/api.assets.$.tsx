@@ -8,49 +8,7 @@ import path from "path";
 const OUT_DIR = path.resolve("out");
 
 async function requireUserId(request: Request): Promise<string> {
-  // Try Better Auth runtime API first
-  try {
-    // @ts-ignore - runtime API may not be typed
-    const session = await auth.api?.getSession?.({ headers: request.headers });
-    const userId: string | undefined = session?.user?.id ?? session?.session?.userId;
-    if (userId) return String(userId);
-  } catch {
-    console.error("Failed to get session");
-  }
-
-  // Fallback: call /api/auth/session with forwarded cookies
-  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:5173";
-  const proto = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-  const base = `${proto}://${host}`;
-  const cookie = request.headers.get("cookie") || "";
-  const res = await fetch(`${base}/api/auth/session`, {
-    headers: {
-      Cookie: cookie,
-      Accept: "application/json",
-    },
-    method: "GET",
-  });
-  if (!res.ok) {
-    throw new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-  const json = await res.json().catch(() => ({}));
-  const uid: string | undefined =
-    json?.user?.id ||
-    json?.user?.userId ||
-    json?.session?.user?.id ||
-    json?.session?.userId ||
-    json?.data?.user?.id ||
-    json?.data?.user?.userId;
-  if (!uid) {
-    throw new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-  return String(uid);
+  return "guest-user-id";
 }
 
 function inferMediaTypeFromName(name: string, fallback: string = "application/octet-stream"): string {
@@ -61,95 +19,98 @@ function inferMediaTypeFromName(name: string, fallback: string = "application/oc
   return fallback;
 }
 
-export async function loader({ request }: { request: Request }) {
-  const url = new URL(request.url);
-  const pathname = url.pathname;
+// Loader removed for SPA mode - API handled by Express server
+// export async function loader({ request }: { request: Request }) {
+//   ...
+// }
+const url = new URL(request.url);
+const pathname = url.pathname;
 
-  const userId = await requireUserId(request);
+const userId = await requireUserId(request);
 
-  // GET /api/assets[?projectId=...] -> list assets for user
-  if (pathname.endsWith("/api/assets") && request.method === "GET") {
-    const projectIdParam = new URL(request.url).searchParams.get("projectId");
-    const projectId = projectIdParam ? String(projectIdParam) : null;
-    const rows = await listAssetsByUser(userId, projectId);
-    const items = rows.map((r) => ({
-      id: r.id,
-      name: r.original_name,
-      mime_type: r.mime_type,
-      size_bytes: r.size_bytes,
-      width: r.width,
-      height: r.height,
-      duration_seconds: r.duration_seconds,
-      durationInSeconds: r.duration_seconds, // camelCase for frontend
-      created_at: r.created_at,
-      mediaUrlRemote: `/api/assets/${r.id}/raw`,
-      // Remove public fullUrl - all access must go through authenticated API
-    }));
-    // Response validation schema
-    const payload = { assets: items };
-    const validated = AssetsResponseSchema.parse(payload);
-    return new Response(JSON.stringify(validated), {
-      status: 200,
+// GET /api/assets[?projectId=...] -> list assets for user
+if (pathname.endsWith("/api/assets") && request.method === "GET") {
+  const projectIdParam = new URL(request.url).searchParams.get("projectId");
+  const projectId = projectIdParam ? String(projectIdParam) : null;
+  const rows = await listAssetsByUser(userId, projectId);
+  const items = rows.map((r) => ({
+    id: r.id,
+    name: r.original_name,
+    mime_type: r.mime_type,
+    size_bytes: r.size_bytes,
+    width: r.width,
+    height: r.height,
+    duration_seconds: r.duration_seconds,
+    durationInSeconds: r.duration_seconds, // camelCase for frontend
+    created_at: r.created_at,
+    mediaUrlRemote: `/api/assets/${r.id}/raw`,
+    // Remove public fullUrl - all access must go through authenticated API
+  }));
+  // Response validation schema
+  const payload = { assets: items };
+  const validated = AssetsResponseSchema.parse(payload);
+  return new Response(JSON.stringify(validated), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+// GET /api/assets/:id/raw -> stream file with auth
+const rawMatch = pathname.match(/\/api\/assets\/([^/]+)\/raw$/);
+if (rawMatch && request.method === "GET") {
+  const assetId = rawMatch[1];
+  const asset = await getAssetById(assetId);
+  if (!asset || asset.user_id !== userId) {
+    return new Response(JSON.stringify({ error: "Not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  // Sanitize storage_key to prevent path traversal
+  const sanitizedKey = path.basename(asset.storage_key);
+  const filePath = path.resolve(OUT_DIR, sanitizedKey);
+  if (!filePath.startsWith(OUT_DIR) || !fs.existsSync(filePath)) {
+    return new Response(JSON.stringify({ error: "Not found" }), {
+      status: 404,
       headers: { "Content-Type": "application/json" },
     });
   }
 
-  // GET /api/assets/:id/raw -> stream file with auth
-  const rawMatch = pathname.match(/\/api\/assets\/([^/]+)\/raw$/);
-  if (rawMatch && request.method === "GET") {
-    const assetId = rawMatch[1];
-    const asset = await getAssetById(assetId);
-    if (!asset || asset.user_id !== userId) {
-      return new Response(JSON.stringify({ error: "Not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
+  // Support range requests for video/audio
+  const stat = fs.statSync(filePath);
+  const range = request.headers.get("range");
+  const contentType = asset.mime_type || inferMediaTypeFromName(asset.original_name);
+  if (range) {
+    const parts = range.replace(/bytes=/, "").split("-");
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+    if (isNaN(start) || isNaN(end) || start > end || start < 0 || end >= stat.size) {
+      return new Response(undefined, { status: 416 });
     }
-    // Sanitize storage_key to prevent path traversal
-    const sanitizedKey = path.basename(asset.storage_key);
-    const filePath = path.resolve(OUT_DIR, sanitizedKey);
-    if (!filePath.startsWith(OUT_DIR) || !fs.existsSync(filePath)) {
-      return new Response(JSON.stringify({ error: "Not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // Support range requests for video/audio
-    const stat = fs.statSync(filePath);
-    const range = request.headers.get("range");
-    const contentType = asset.mime_type || inferMediaTypeFromName(asset.original_name);
-    if (range) {
-      const parts = range.replace(/bytes=/, "").split("-");
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
-      if (isNaN(start) || isNaN(end) || start > end || start < 0 || end >= stat.size) {
-        return new Response(undefined, { status: 416 });
-      }
-      const chunkSize = end - start + 1;
-      const stream = fs.createReadStream(filePath, { start, end });
-      return new Response(stream as unknown as BodyInit, {
-        status: 206,
-        headers: {
-          "Content-Range": `bytes ${start}-${end}/${stat.size}`,
-          "Accept-Ranges": "bytes",
-          "Content-Length": String(chunkSize),
-          "Content-Type": contentType,
-        },
-      });
-    }
-
-    const stream = fs.createReadStream(filePath);
+    const chunkSize = end - start + 1;
+    const stream = fs.createReadStream(filePath, { start, end });
     return new Response(stream as unknown as BodyInit, {
-      status: 200,
+      status: 206,
       headers: {
-        "Content-Length": String(stat.size),
+        "Content-Range": `bytes ${start}-${end}/${stat.size}`,
+        "Accept-Ranges": "bytes",
+        "Content-Length": String(chunkSize),
         "Content-Type": contentType,
       },
     });
   }
 
-  return new Response("Not Found", { status: 404 });
+  const stream = fs.createReadStream(filePath);
+  return new Response(stream as unknown as BodyInit, {
+    status: 200,
+    headers: {
+      "Content-Length": String(stat.size),
+      "Content-Type": contentType,
+    },
+  });
+}
+
+return new Response("Not Found", { status: 404 });
 }
 
 export async function action({ request }: { request: Request }) {

@@ -5,22 +5,23 @@ import { KimuLogo } from "~/components/ui/KimuLogo";
 import { Clapperboard, Wand2, Scissors } from "lucide-react";
 import { FaGoogle } from "react-icons/fa";
 
-export async function loader({ request }: { request: Request }) {
-  // If already authenticated, redirect to projects
-  try {
-    const session = await auth.api?.getSession?.({ headers: request.headers });
-    const uid: string | undefined =
-      session?.user?.id || session?.session?.userId;
-    if (uid)
-      return new Response(null, {
-        status: 302,
-        headers: { Location: "/projects" },
-      });
-  } catch {
-    console.error("Login failed");
-  }
-  return null;
-}
+// Loader removed for SPA mode compatibility
+// export async function loader({ request }: { request: Request }) {
+//   // If already authenticated, redirect to projects
+//   try {
+//     const session = await auth.api?.getSession?.({ headers: request.headers });
+//     const uid: string | undefined =
+//       session?.user?.id || session?.session?.userId;
+//     if (uid)
+//       return new Response(null, {
+//         status: 302,
+//         headers: { Location: "/projects" },
+//       });
+//   } catch {
+//     console.error("Login failed");
+//   }
+//   return null;
+// }
 
 export default function LoginPage() {
   const { isSigningIn, signInWithGoogle } = useAuth();

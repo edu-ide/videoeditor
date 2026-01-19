@@ -43,7 +43,6 @@ import {
   AlertDialogCancel,
 } from "~/components/ui/alert-dialog";
 import { Input } from "~/components/ui/input";
-import { auth } from "~/lib/auth.server";
 import { cn } from "~/lib/utils";
 
 type Project = { id: string; name: string; created_at: string };
@@ -163,22 +162,8 @@ const ProjectCard = ({
   );
 };
 
-export async function loader({ request }: { request: Request }) {
-  try {
-    // Prefer Better Auth runtime API to avoid SSR fetch cookie issues
-    // @ts-ignore
-    const session = await auth.api?.getSession?.({ headers: request.headers });
-    const uid: string | undefined = session?.user?.id || session?.session?.userId;
-    if (!uid)
-      return new Response(null, {
-        status: 302,
-        headers: { Location: "/login" },
-      });
-  } catch {
-    return new Response(null, { status: 302, headers: { Location: "/login" } });
-  }
-  return null;
-}
+// Loader removed for SPA mode compatibility
+// Authentication is handled client-side via useAuth hook
 
 export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -186,7 +171,7 @@ export default function Projects() {
   const [creating, setCreating] = useState(false);
   const [sortBy, setSortBy] = useState<"created_desc" | "created_asc" | "name_asc" | "name_desc">("created_desc");
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, onSignOut } = useAuth();
   const [starCount, setStarCount] = useState<number | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -314,7 +299,7 @@ export default function Projects() {
             <ProfileMenu
               user={{ name: user.name, email: user.email, image: user.image }}
               starCount={starCount}
-              onSignOut={signOut}
+              onSignOut={onSignOut}
             />
           )}
         </div>

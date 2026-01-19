@@ -18,7 +18,7 @@ export const getApiBaseUrl = (fastapi: boolean = false, betterauth: boolean = fa
   const prodDomain = `${protocol}://${prodDomainHost}`;
 
   if (betterauth) {
-    return isProduction ? prodDomain : "http://localhost:5173"; // frontend  NOTE: this will be deleted, it is repeating logic. It'll be the default.
+    return isProduction ? prodDomain : "http://localhost:3000"; // SPA mode uses Express server on port 3000
   } else if (fastapi) {
     return isProduction ? `${prodDomain}/ai/api` : "http://127.0.0.1:3000"; // fastapi backend
   } else {
