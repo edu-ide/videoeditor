@@ -1,9 +1,11 @@
 {
+  "version": "0.0.0",
   "name": "videoeditor",
   "private": true,
   "type": "module",
   "license": "SEE LICENSE IN LICENSE.md",
   "scripts": {
+  "version": "0.0.0",
     "build": "react-router build",
     "dev": "react-router dev",
     "start": "react-router-serve ./build/server/index.js",
@@ -14,6 +16,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+  "version": "0.0.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.15",
@@ -63,11 +66,14 @@
     "zod": "4.0.9"
   },
   "pnpm": {
+  "version": "0.0.0",
     "overrides": {
+  "version": "0.0.0",
       "zod": "4.0.9"
     }
   },
   "devDependencies": {
+  "version": "0.0.0",
     "@eslint/js": "^9.32.0",
     "@react-router/dev": "^7.7.1",
     "@tailwindcss/vite": "^4.1.11",
